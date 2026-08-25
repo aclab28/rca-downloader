@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RCA Extractor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16161a; --ink-soft:#5c5f68;
+  --paper:#eceef1; --card:#fff; --line:#d4d7dd;
+  --checker-a:#fff; --checker-b:#dcdee3;
+  --signal:#ff4500; --good:#0e7c66; --bad:#b3261e;
+  --display:"Archivo",system-ui,-apple-system,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --data:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  -webkit-text-size-adjust:100%;padding:0 14px calc(44px + env(safe-area-inset-bottom));max-width:600px;margin:0 auto}
+h1,h2{font-family:var(--display);margin:0}
+h1{font-variation-settings:"wdth" 125,"wght" 800;font-size:26px;letter-spacing:-.02em;text-transform:uppercase;line-height:1}
+h2{font-variation-settings:"wdth" 112,"wght" 700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+header{padding:22px 0 16px;display:flex;align-items:center;gap:11px}
+.mark{width:30px;height:30px;border-radius:7px;flex:none;border:1px solid var(--line);position:relative}
+.mark::after{content:"";position:absolute;inset:7px 7px auto auto;width:10px;height:10px;border-radius:50%;background:var(--signal)}
+.sub{font-family:var(--data);font-size:11px;color:var(--ink-soft);line-height:1.3}
+section{margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+label{display:block;font-family:var(--data);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+input[type=text]{width:100%;font-family:var(--data);font-size:13px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#fafbfc;color:var(--ink)}
+input:focus,button:focus-visible,.lay:focus-visible,select:focus{outline:2px solid var(--signal);outline-offset:2px}
+button{font-family:var(--display);font-variation-settings:"wdth" 110,"wght" 700;font-size:13px;letter-spacing:.04em;
+  text-transform:uppercase;border:1px solid var(--ink);background:var(--card);color:var(--ink);border-radius:8px;
+  padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.primary{background:var(--signal);border-color:var(--signal);color:#fff}
+button:disabled{opacity:.35}
+.row{display:flex;gap:8px;margin-top:10px}
+.row>*{flex:1}
+#log{font-family:var(--data);font-size:11.5px;line-height:1.6;margin-top:10px;max-height:190px;overflow:auto}
+#log div{padding:2px 0;border-bottom:1px dotted var(--line)}
+.ok{color:var(--good)} .err{color:var(--bad)} .dim{color:var(--ink-soft)}
+.checker{background-image:
+  linear-gradient(45deg,var(--checker-b) 25%,transparent 25%),
+  linear-gradient(-45deg,var(--checker-b) 25%,transparent 25%),
+  linear-gradient(45deg,transparent 75%,var(--checker-b) 75%),
+  linear-gradient(-45deg,transparent 75%,var(--checker-b) 75%);
+  background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:var(--checker-a)}
+.mark.checker{background-size:10px 10px;background-position:0 0,0 5px,5px -5px,-5px 0}
+.thumb.checker{background-size:8px 8px;background-position:0 0,0 4px,4px -4px,-4px 0}
+#stage{border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;min-height:180px;overflow:hidden}
+#stage canvas{max-width:100%;max-height:340px;display:block}
+.stack{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column-reverse}
+.lay{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:8px;margin-top:-1px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lay[aria-pressed=false]{opacity:.4}
+.zbar{width:3px;align-self:stretch;border-radius:2px;background:var(--line);flex:none}
+.lay[aria-pressed=true] .zbar{background:var(--signal)}
+.thumb{width:42px;height:42px;flex:none;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb img,.thumb canvas{max-width:100%;max-height:100%;display:block}
+.meta{min-width:0;flex:1}
+.nm{font-family:var(--display);font-variation-settings:"wdth" 100,"wght" 650;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm{font-family:var(--data);font-size:10.5px;color:var(--ink-soft)}
+.zi{font-family:var(--data);font-size:10px;color:var(--ink-soft);border:1px solid var(--line);border-radius:4px;padding:1px 5px;flex:none}
+.hidden{display:none}
+.swatches{display:flex;gap:10px;margin-top:10px}
+.sw{flex:1;text-align:center}
+.sw input[type=color]{width:100%;height:38px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px;cursor:pointer}
+.sw span{display:block;font-family:var(--data);font-size:10px;color:var(--ink-soft);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+.exports{display:grid;gap:8px}
+.exports button{text-align:left;padding:13px 14px;line-height:1.3}
+.exports small{display:block;font-family:var(--data);font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink-soft);margin-top:3px}
+.exports button.primary small{color:rgba(255,255,255,.85)}
+select{width:100%;font-family:var(--data);font-size:13px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fafbfc}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark checker" aria-hidden="true"></div>
+  <div><h1>RCA Extractor</h1><div class="sub">Collectible avatars &rarr; editable vector layers</div></div>
+</header>
+
+<section class="card">
+  <label for="src">OpenSea link, qudot link, or collectible name</label>
+  <input type="text" id="src" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"
+         placeholder="https://opensea.io/item/polygon/0x…">
+  <div class="row"><button class="primary" id="go">Load layers</button></div>
+  <div id="log"></div>
+</section>
+
+<section id="picker" class="card hidden">
+  <label for="sel">Several matches — choose one</label>
+  <select id="sel"></select>
+  <div class="row"><button id="selGo">Use this one</button></div>
+</section>
+
+<section id="results" class="hidden">
+  <h2>Composite</h2>
+  <div id="stage" class="checker"></div>
+
+  <div class="swatches">
+    <div class="sw"><input type="color" id="cBody" value="#00ff00"><span>Body</span></div>
+    <div class="sw"><input type="color" id="cEyes" value="#ffff00"><span>Eyes</span></div>
+    <div class="sw"><input type="color" id="cHair" value="#0000ff"><span>Hair</span></div>
+  </div>
+  <div class="dm" style="margin-top:6px" id="colorNote"></div>
+
+  <h2 style="margin-top:20px">Layers <span class="dm" id="lcount"></span></h2>
+  <ul class="stack" id="stack"></ul>
+  <div class="dm" style="margin-top:8px">Tap to include or exclude. z1 is the lowest trait; the background sits beneath all of them.</div>
+
+  <h2 style="margin-top:22px">Export</h2>
+  <div style="margin-bottom:10px">
+    <label for="scale">Raster size</label>
+    <select id="scale">
+      <option value="1">552 × 736 — native</option>
+      <option value="2" selected>1104 × 1472 — 2×</option>
+      <option value="4">2208 × 2944 — 4×</option>
+      <option value="8">4416 × 5888 — 8×</option>
+    </select>
+  </div>
+  <div class="exports">
+    <button class="primary" data-x="full">Full avatar PNG<small>Flattened, background included</small></button>
+    <button data-x="split">Background + avatar<small>Two PNGs, avatar on transparency</small></button>
+    <button data-x="traits">Every trait separately<small>One transparent PNG per trait, all aligned</small></button>
+    <button data-x="svg">Layered SVG<small>True vector paths in named groups, background embedded</small></button>
+    <button data-x="rawsvg">Raw trait SVGs<small>Untouched originals, placeholder colours intact</small></button>
+  </div>
+  <div class="dm" style="margin-top:10px" id="xnote"></div>
+</section>
+
+<script>
+"use strict";
+
+/* ============ constants lifted from qudot's client ============ */
+const ZORDER = {rightHand:9, leftHand:8, hat:7, hairFront:6, eyes:5, face:4, top:3, bottom:2, hairBack:1};
+const SLOT_LABEL = {
+  hairBack:"Hair (back)", bottom:"Bottom", top:"Top", face:"Face",
+  eyes:"Eyes", hairFront:"Hair (front)", hat:"Hat",
+  leftHand:"Left hand", rightHand:"Right hand"
+};
+const BG_W = 552, BG_H = 736;      // background canvas
+const TR_W = 380, TR_H = 600;      // trait canvas, centred inside the background
+const OFF_X = (BG_W - TR_W) / 2;   // 86
+const OFF_Y = (BG_H - TR_H) / 2;   // 68
+const DATA_URL = "https://raw.githubusercontent.com/uxuz/qudot/main/src/data/collectibles.json";
+
+/* ============ logging ============ */
+const logEl = document.getElementById("log");
+function log(m, c){ const d=document.createElement("div"); if(c)d.className=c; d.textContent=m; logEl.appendChild(d); logEl.scrollTop=1e6; }
+function clearLog(){ logEl.innerHTML=""; }
+
+/* ============ ZIP (store, no deps) ============ */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function makeZip(files){
+  const enc=new TextEncoder(), parts=[], cen=[]; let off=0;
+  const D=new Date();
+  const tt=((D.getHours()<<11)|(D.getMinutes()<<5)|(D.getSeconds()>>1))&0xFFFF;
+  const dd=(((D.getFullYear()-1980)<<9)|((D.getMonth()+1)<<5)|D.getDate())&0xFFFF;
+  for(const f of files){
+    const nb=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+    const lh=new Uint8Array(30+nb.length), lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true); lv.setUint16(4,20,true); lv.setUint16(6,0x0800,true);
+    lv.setUint16(8,0,true); lv.setUint16(10,tt,true); lv.setUint16(12,dd,true);
+    lv.setUint32(14,crc,true); lv.setUint32(18,sz,true); lv.setUint32(22,sz,true);
+    lv.setUint16(26,nb.length,true); lh.set(nb,30);
+    parts.push(lh,f.data);
+    const ch=new Uint8Array(46+nb.length), cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true);
+    cv.setUint16(8,0x0800,true); cv.setUint16(10,0,true); cv.setUint16(12,tt,true); cv.setUint16(14,dd,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,sz,true); cv.setUint32(24,sz,true);
+    cv.setUint16(28,nb.length,true); cv.setUint32(42,off,true); ch.set(nb,46);
+    cen.push(ch); off+=lh.length+sz;
+  }
+  let cs=0; for(const c of cen) cs+=c.length;
+  const e=new Uint8Array(22), ev=new DataView(e.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cs,true); ev.setUint32(16,off,true);
+  return new Blob([...parts,...cen,e],{type:"application/zip"});
+}
+function download(blob,name){
+  const u=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),30000);
+}
+
+/* ============ qudot's trait-id decoder, ported verbatim ============ */
+function hairParts(s){
+  const i=s.indexOf("_hair_"), n=s.slice(i+6);
+  return n.length>22 ? {frontId:n.slice(-23,-12), backId:n.slice(-11)}
+                     : {frontId:n.slice(-11), backId:""};
+}
+function decodeTraits(list){
+  const t={};
+  if(!list || !list.length) return t;
+  const legacy = list[0] && list[0].startsWith("t2_");
+  for(let n of list){
+    if(legacy){
+      if(n.includes("VERSION_2")) n=n.slice(0,-10);
+      if(n.includes("_hair_")){
+        const h=hairParts(n);
+        if(h.frontId && !h.backId) t.hairFront=n.slice(-11)+"_";
+        else { t.hairFront=n.slice(-23,-12)+"_"; t.hairBack=n.slice(-11)+"_"; }
+      }
+      else if(n.includes("_body_bottom_"))    t.bottom    = n.slice(-11)+"_";
+      else if(n.includes("_body_"))           t.top       = n.slice(-11)+"_";
+      else if(n.includes("_face_lower_"))     t.face      = n.slice(-11)+"_";
+      else if(n.includes("_face_upper_"))     t.eyes      = n.slice(-11)+"_";
+      else if(n.includes("_head_accessory_")) t.hat       = n.slice(-11)+"_";
+      else if(n.includes("_accessory_back_")) t.rightHand = n.slice(-11)+"_";
+      else if(n.includes("_accessory_"))      t.leftHand  = n.slice(-11)+"_";
+    } else {
+      if(n.includes("_hair_")){
+        const h=hairParts(n);
+        if(n.includes("VERSION_2") || (h.frontId && !h.backId)) t.hairFront=n.slice(-11)+"_"+n.slice(0,-12);
+        else { t.hairFront=n.slice(-23,-12)+"_"+n.slice(0,-24); t.hairBack=n.slice(-11)+"_"+n.slice(0,-24); }
+      }
+      else if(n.includes("_body_bottom_"))    t.bottom    = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_body_"))           t.top       = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_face_lower_"))     t.face      = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_face_upper_"))     t.eyes      = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_head_accessory_")) t.hat       = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_accessory_back_")) t.rightHand = n.slice(-11)+"_"+n.slice(0,-12);
+      else if(n.includes("_accessory_"))      t.leftHand  = n.slice(-11)+"_"+n.slice(0,-12);
+    }
+  }
+  return t;
+}
+function assetUrl(id){
+  return id.slice(-1) !== "_"
+    ? "https://i.redd.it/snoovatar/snoo_assets/" + id + ".svg"
+    : "https://i.redd.it/snoovatar/snoo_assets/submissions/" + id + ".svg";
+}
+
+/* ============ state ============ */
+let CATALOG = null;
+let REC = null;           // chosen collectible record
+let LAYERS = [];          // {slot,label,id,url,svgText,z,on}
+let BG = null;            // {url, bytes, img}
+let MATCHES = [];
+
+/* ============ catalog ============ */
+async function catalog(){
+  if(CATALOG) return CATALOG;
+  log("downloading collectible index (~6 MB, once per session)…","dim");
+  const r = await fetch(DATA_URL);
+  if(!r.ok) throw new Error("Index download failed: HTTP "+r.status);
+  const j = await r.json();
+  CATALOG = Array.isArray(j) ? j : Object.values(j);
+  log("index ready — "+CATALOG.length+" collectibles","ok");
+  return CATALOG;
+}
+function findByContract(list, contract, token){
+  let hits = list.filter(c => (c.contractAddress||"").toLowerCase() === contract);
+  if(hits.length > 1 && token != null){
+    const t = Number(token);
+    const under = hits.filter(c => Number(c.startingTokenId) <= t);
+    if(under.length) hits = [under.reduce((a,b)=> Number(b.startingTokenId) > Number(a.startingTokenId) ? b : a)];
+  }
+  return hits;
+}
+function parseInput(v){
+  v = v.trim();
+  if(!v) return {kind:"empty"};
+  const os = v.match(/opensea\.io\/(?:item|assets)\/(?:matic|polygon)\/(0x[a-fA-F0-9]{40})(?:\/(\d+))?/i);
+  if(os) return {kind:"contract", contract:os[1].toLowerCase(), token:os[2]||null};
+  const bare = v.match(/^(0x[a-fA-F0-9]{40})$/);
+  if(bare) return {kind:"contract", contract:bare[1].toLowerCase(), token:null};
+  const qd = v.match(/qudot\.app\/collectibles\/([A-Za-z0-9]+)/i);
+  if(qd) return {kind:"product", productId:qd[1]};
+  return {kind:"name", q:v.toLowerCase()};
+}
+
+/* ============ SVG helpers ============ */
+const PLACEHOLDERS = [
+  {re:/fill:\s*(lime|#00FF00)\s*;/gi,  key:"body"},
+  {re:/fill:\s*(#FFFF00|#FF0)\s*;/gi,  key:"eyes"},
+  {re:/fill:\s*blue\s*;/gi,            key:"hair"}
+];
+function recolour(svgText, colors){
+  let out = svgText, touched = false;
+  for(const p of PLACEHOLDERS){
+    if(p.re.test(out)){ touched = true; }
+    p.re.lastIndex = 0;
+    out = out.replace(p.re, "fill: " + colors[p.key] + ";");
+  }
+  return {svg:out, touched};
+}
+function namespaceClasses(svgText, prefix){
+  // Reddit SVGs use generic class names (.cls-1). Merging several into one
+  // document would collide, so scope each layer's classes to itself.
+  let out = svgText.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (m,attrs,css) =>
+    "<style"+attrs+">" + css.replace(/\.([A-Za-z_][\w-]*)/g, "."+prefix+"$1") + "</style>");
+  out = out.replace(/\sclass="([^"]*)"/g, (m,cl) =>
+    ' class="' + cl.trim().split(/\s+/).filter(Boolean).map(c=>prefix+c).join(" ") + '"');
+  return out;
+}
+function svgInner(svgText){
+  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const el = doc.documentElement;
+  if(el.nodeName === "parsererror" || el.querySelector("parsererror")) return null;
+  const vb = (el.getAttribute("viewBox")||"").trim().split(/[\s,]+/).map(Number);
+  const box = (vb.length===4 && vb[2]>0) ? {x:vb[0],y:vb[1],w:vb[2],h:vb[3]}
+            : {x:0,y:0,w:parseFloat(el.getAttribute("width"))||TR_W,h:parseFloat(el.getAttribute("height"))||TR_H};
+  return {inner: el.innerHTML, box};
+}
+function svgToImage(svgText){
+  const blob = new Blob([svgText], {type:"image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  return new Promise((res,rej)=>{
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error("SVG failed to rasterise"));
+    im.src = url;
+  });
+}
+function sizedSVG(svgText, w, h){
+  // Give the SVG explicit pixel dimensions so <img> rasterises predictably.
+  return svgText.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+    let a = attrs.replace(/\swidth="[^"]*"/i,"").replace(/\sheight="[^"]*"/i,"");
+    return '<svg'+a+' width="'+w+'" height="'+h+'">';
+  });
+}
+
+/* ============ loading ============ */
+async function loadCollectible(rec){
+  REC = rec;
+  const ids = decodeTraits(rec.traits || []);
+  const slots = Object.keys(ids).filter(s => ids[s]).sort((a,b)=>ZORDER[a]-ZORDER[b]);
+  if(!slots.length) log("warning: no traits decoded from this record","err");
+
+  LAYERS = [];
+  for(const slot of slots){
+    const id = ids[slot], url = assetUrl(id);
+    log("fetching "+SLOT_LABEL[slot]+"…","dim");
+    let txt;
+    try{
+      const r = await fetch(url);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      txt = await r.text();
+    }catch(e){
+      log(SLOT_LABEL[slot]+" failed: "+e.message,"err");
+      continue;
+    }
+    LAYERS.push({slot, label:SLOT_LABEL[slot], id, url, svgText:txt, z:ZORDER[slot], on:true});
+  }
+
+  BG = null;
+  if(rec.backgroundUrl){
+    try{
+      const r = await fetch(rec.backgroundUrl);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      const im = new Image();
+      im.src = URL.createObjectURL(new Blob([bytes],{type:"image/png"}));
+      await new Promise((res,rej)=>{im.onload=res;im.onerror=()=>rej(new Error("bad background"))});
+      BG = {url:rec.backgroundUrl, bytes, img:im, on:true};
+      log("background loaded "+im.naturalWidth+"×"+im.naturalHeight,"ok");
+    }catch(e){ log("background failed: "+e.message,"err"); }
+  }
+  log(LAYERS.length+" trait layers ready","ok");
+  render();
+}
+
+/* ============ rendering ============ */
+function colors(){
+  return {
+    body: document.getElementById("cBody").value,
+    eyes: document.getElementById("cEyes").value,
+    hair: document.getElementById("cHair").value
+  };
+}
+function scale(){ return parseInt(document.getElementById("scale").value,10) || 2; }
+
+async function compose({withBg=true, withTraits=true, only=null, s=null}={}){
+  const k = s || scale();
+  const c = document.createElement("canvas");
+  c.width = BG_W*k; c.height = BG_H*k;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+
+  if(withBg && BG && BG.on && !only) ctx.drawImage(BG.img, 0, 0, c.width, c.height);
+  if(!withTraits) return c;
+
+  const list = only ? [only] : LAYERS.filter(l=>l.on);
+  const col = colors();
+  for(const l of list){
+    const {svg} = recolour(l.svgText, col);
+    const im = await svgToImage(sizedSVG(svg, TR_W*k, TR_H*k));
+    ctx.drawImage(im, OFF_X*k, OFF_Y*k, TR_W*k, TR_H*k);
+    URL.revokeObjectURL(im.src);
+  }
+  return c;
+}
+
+async function render(){
+  document.getElementById("results").classList.remove("hidden");
+  const stage = document.getElementById("stage");
+  stage.innerHTML = "";
+  stage.appendChild(await compose({s:1}));
+
+  let colourable = 0;
+  for(const l of LAYERS){ if(recolour(l.svgText, colors()).touched) colourable++; }
+  document.getElementById("colorNote").textContent = colourable
+    ? colourable + " of " + LAYERS.length + " layers use Reddit's placeholder fills and follow these swatches."
+    : "No layer on this collectible uses placeholder fills — these swatches will do nothing.";
+
+  document.getElementById("lcount").textContent = LAYERS.length + " traits" + (BG ? " + background" : "");
+  const stack = document.getElementById("stack");
+  stack.innerHTML = "";
+
+  const rows = LAYERS.slice().sort((a,b)=>a.z-b.z).map(l=>({l, z:l.z, name:l.label, sub:l.id}));
+  if(BG) rows.unshift({l:BG, z:0, name:"Background", sub:"552 × 736 raster", isBg:true});
+
+  for(const r of rows){
+    const li=document.createElement("li");
+    li.className="lay"; li.setAttribute("role","button"); li.tabIndex=0;
+    li.setAttribute("aria-pressed", String(r.l.on));
+    const zb=document.createElement("div"); zb.className="zbar";
+    const th=document.createElement("div"); th.className="thumb checker";
+    if(r.isBg){ const im=new Image(); im.src=r.l.img.src; th.appendChild(im); }
+    else {
+      const {svg}=recolour(r.l.svgText, colors());
+      svgToImage(sizedSVG(svg,84,132)).then(im=>th.appendChild(im)).catch(()=>{});
+    }
+    const meta=document.createElement("div"); meta.className="meta";
+    const nm=document.createElement("div"); nm.className="nm"; nm.textContent=r.name;
+    const dm=document.createElement("div"); dm.className="dm"; dm.textContent=r.sub;
+    meta.append(nm,dm);
+    const zi=document.createElement("span"); zi.className="zi"; zi.textContent="z"+r.z;
+    li.append(zb,th,meta,zi);
+    const toggle=async()=>{
+      r.l.on=!r.l.on; li.setAttribute("aria-pressed",String(r.l.on));
+      stage.innerHTML=""; stage.appendChild(await compose({s:1}));
+    };
+    li.addEventListener("click",toggle);
+    li.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();} });
+    stack.appendChild(li);
+  }
+}
+
+/* ============ exports ============ */
+function slug(){
+  return (REC && REC.name ? REC.name : "avatar").replace(/[^\w\- ]/g,"").trim().replace(/\s+/g,"-").toLowerCase() || "avatar";
+}
+function canvasBytes(c){
+  return new Promise(res => c.toBlob(b => b.arrayBuffer().then(ab => res(new Uint8Array(ab))), "image/png"));
+}
+function b64(bytes){
+  let s=""; const CH=0x8000;
+  for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+  return btoa(s);
+}
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+async function xFull(){
+  download(new Blob([await canvasBytes(await compose({}))],{type:"image/png"}), slug()+".png");
+  return "Saved "+slug()+".png";
+}
+async function xSplit(){
+  if(!BG) throw new Error("This collectible has no background asset.");
+  const bgC=document.createElement("canvas"); bgC.width=BG_W*scale(); bgC.height=BG_H*scale();
+  bgC.getContext("2d").drawImage(BG.img,0,0,bgC.width,bgC.height);
+  const files=[
+    {name:slug()+"/background.png", data:await canvasBytes(bgC)},
+    {name:slug()+"/avatar-transparent.png", data:await canvasBytes(await compose({withBg:false}))}
+  ];
+  download(makeZip(files), slug()+"-split.zip");
+  return "Saved background + transparent avatar";
+}
+async function xTraits(){
+  const files=[];
+  if(BG){
+    const bgC=document.createElement("canvas"); bgC.width=BG_W*scale(); bgC.height=BG_H*scale();
+    bgC.getContext("2d").drawImage(BG.img,0,0,bgC.width,bgC.height);
+    files.push({name:slug()+"/00-background.png", data:await canvasBytes(bgC)});
+  }
+  for(const l of LAYERS.filter(l=>l.on).sort((a,b)=>a.z-b.z)){
+    const c=await compose({withBg:false, only:l});
+    files.push({name:slug()+"/"+String(l.z).padStart(2,"0")+"-"+l.slot+".png", data:await canvasBytes(c)});
+  }
+  download(makeZip(files), slug()+"-traits.zip");
+  return "Saved "+files.length+" aligned PNGs";
+}
+async function xLayeredSVG(){
+  const col=colors();
+  let out='<?xml version="1.0" encoding="UTF-8"?>\n';
+  out+='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+     + 'xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" '
+     + 'width="'+BG_W+'" height="'+BG_H+'" viewBox="0 0 '+BG_W+' '+BG_H+'">\n';
+  out+='  <title>'+esc(REC && REC.name || "avatar")+'</title>\n';
+
+  if(BG && BG.on){
+    out+='  <g id="background" inkscape:groupmode="layer" inkscape:label="Background">\n'
+       + '    <title>Background</title>\n'
+       + '    <image x="0" y="0" width="'+BG_W+'" height="'+BG_H+'" xlink:href="data:image/png;base64,'+b64(BG.bytes)+'"/>\n'
+       + '  </g>\n';
+  }
+  for(const l of LAYERS.filter(l=>l.on).sort((a,b)=>a.z-b.z)){
+    const {svg}=recolour(l.svgText, col);
+    const ns=namespaceClasses(svg, l.slot+"-");
+    const parsed=svgInner(ns);
+    if(!parsed){ log("skipped "+l.label+" — unparseable SVG","err"); continue; }
+    const sx=TR_W/parsed.box.w, sy=TR_H/parsed.box.h;
+    out+='  <g id="'+l.slot+'" inkscape:groupmode="layer" inkscape:label="'+esc(l.label)+'" '
+       + 'transform="translate('+OFF_X+','+OFF_Y+') scale('+sx.toFixed(6)+','+sy.toFixed(6)+') '
+       + 'translate('+(-parsed.box.x)+','+(-parsed.box.y)+')">\n'
+       + '    <title>'+esc(l.label)+'</title>\n'
+       + parsed.inner + '\n  </g>\n';
+  }
+  out+='</svg>\n';
+  download(new Blob([out],{type:"image/svg+xml"}), slug()+"-layered.svg");
+  return "Saved layered vector SVG";
+}
+async function xRaw(){
+  const enc=new TextEncoder(), files=[];
+  if(BG) files.push({name:slug()+"/background.png", data:BG.bytes});
+  for(const l of LAYERS.sort((a,b)=>a.z-b.z))
+    files.push({name:slug()+"/"+String(l.z).padStart(2,"0")+"-"+l.slot+".svg", data:enc.encode(l.svgText)});
+  files.push({name:slug()+"/source.json", data:enc.encode(JSON.stringify(REC,null,2))});
+  download(makeZip(files), slug()+"-raw.zip");
+  return "Saved untouched source assets";
+}
+
+/* ============ wiring ============ */
+async function run(){
+  clearLog();
+  document.getElementById("picker").classList.add("hidden");
+  const p = parseInput(document.getElementById("src").value);
+  try{
+    if(p.kind==="empty") throw new Error("Paste an OpenSea link, a qudot link, or a name.");
+    const list = await catalog();
+    let hits=[];
+    if(p.kind==="contract"){
+      hits = findByContract(list, p.contract, p.token);
+      if(!hits.length) throw new Error("No collectible in the index uses contract "+p.contract+".");
+    } else if(p.kind==="product"){
+      hits = list.filter(c => (c.productId||"") === p.productId);
+      if(!hits.length) throw new Error("No collectible with that qudot id.");
+    } else {
+      hits = list.filter(c => (c.name||"").toLowerCase().includes(p.q)).slice(0,40);
+      if(!hits.length) throw new Error("Nothing matched \u201C"+p.q+"\u201D.");
+    }
+    if(hits.length>1){
+      MATCHES=hits;
+      const sel=document.getElementById("sel");
+      sel.innerHTML="";
+      hits.forEach((c,i)=>{ const o=document.createElement("option"); o.value=i;
+        o.textContent=(c.name||"untitled")+" — "+(c.creator||"?"); sel.appendChild(o); });
+      document.getElementById("picker").classList.remove("hidden");
+      log(hits.length+" matches — pick one below","dim");
+      return;
+    }
+    log("loading "+(hits[0].name||"collectible"),"dim");
+    await loadCollectible(hits[0]);
+  }catch(e){ log(e.message,"err"); }
+}
+document.getElementById("go").onclick = run;
+document.getElementById("src").addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });
+document.getElementById("selGo").onclick = async () => {
+  document.getElementById("picker").classList.add("hidden");
+  try{ await loadCollectible(MATCHES[+document.getElementById("sel").value]); }
+  catch(e){ log(e.message,"err"); }
+};
+["cBody","cEyes","cHair"].forEach(id =>
+  document.getElementById(id).addEventListener("change", ()=>{ if(LAYERS.length) render(); }));
+
+document.querySelectorAll(".exports button").forEach(b=>{
+  b.addEventListener("click", async ()=>{
+    const n=document.getElementById("xnote");
+    n.textContent="Working…"; n.className="dm";
+    try{
+      const fns={full:xFull, split:xSplit, traits:xTraits, svg:xLayeredSVG, rawsvg:xRaw};
+      n.textContent=await fns[b.dataset.x](); n.className="dm ok";
+    }catch(e){ n.textContent=e.message; n.className="dm err"; }
+  });
+});
+</script>
+</body>
+</html>
