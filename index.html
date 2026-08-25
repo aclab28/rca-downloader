@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RCA Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16161a; --ink-soft:#5c5f68; --paper:#eceef1; --card:#fff; --line:#d4d7dd;
+  --checker-a:#fff; --checker-b:#dcdee3; --signal:#ff4500; --good:#0e7c66; --bad:#b3261e;
+  --display:"Archivo",system-ui,-apple-system,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --data:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  -webkit-text-size-adjust:100%;padding:0 14px calc(44px + env(safe-area-inset-bottom));max-width:620px;margin:0 auto}
+h1{font-family:var(--display);font-variation-settings:"wdth" 125,"wght" 800;font-size:25px;
+  letter-spacing:-.02em;text-transform:uppercase;line-height:1;margin:0}
+h2{font-family:var(--display);font-variation-settings:"wdth" 112,"wght" 700;font-size:12px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 8px}
+header{padding:20px 0 14px;display:flex;align-items:center;gap:11px}
+.mark{width:30px;height:30px;border-radius:7px;flex:none;border:1px solid var(--line);position:relative;
+  background-image:
+    linear-gradient(45deg,var(--checker-b) 25%,transparent 25%),linear-gradient(-45deg,var(--checker-b) 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,var(--checker-b) 75%),linear-gradient(-45deg,transparent 75%,var(--checker-b) 75%);
+  background-size:10px 10px;background-position:0 0,0 5px,5px -5px,-5px 0;background-color:var(--checker-a)}
+.mark::after{content:"";position:absolute;inset:7px 7px auto auto;width:10px;height:10px;border-radius:50%;background:var(--signal)}
+.sub{font-family:var(--data);font-size:11px;color:var(--ink-soft);line-height:1.3}
+section{margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+input[type=search]{width:100%;font-family:var(--data);font-size:15px;padding:12px 13px;border:1px solid var(--line);
+  border-radius:9px;background:var(--card);color:var(--ink);-webkit-appearance:none}
+input:focus,button:focus-visible,.hit:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.hint{font-family:var(--data);font-size:10.5px;color:var(--ink-soft);margin-top:7px;line-height:1.5}
+button{font-family:var(--display);font-variation-settings:"wdth" 110,"wght" 700;font-size:13px;letter-spacing:.04em;
+  text-transform:uppercase;border:1px solid var(--ink);background:var(--card);color:var(--ink);border-radius:9px;
+  padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;width:100%}
+button.primary{background:var(--signal);border-color:var(--signal);color:#fff}
+button:disabled{opacity:.4}
+button small{display:block;font-family:var(--data);font-size:10.5px;text-transform:none;letter-spacing:0;
+  font-weight:400;color:rgba(255,255,255,.85);margin-top:3px}
+.results{list-style:none;margin:12px 0 0;padding:0}
+.hit{display:flex;gap:11px;align-items:center;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:8px;margin-top:-1px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hit[aria-selected=true]{border-color:var(--signal);position:relative;z-index:1}
+.hit .tw{width:40px;height:53px;flex:none;border-radius:5px;border:1px solid var(--line);overflow:hidden;
+  background:var(--checker-b);display:flex;align-items:center;justify-content:center}
+.hit .tw img{width:100%;height:100%;object-fit:contain}
+.hit .info{min-width:0;flex:1}
+.hit .t{font-family:var(--display);font-variation-settings:"wdth" 100,"wght" 650;font-size:14.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hit .m{font-family:var(--data);font-size:10.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stage{border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;
+  background-image:
+    linear-gradient(45deg,var(--checker-b) 25%,transparent 25%),linear-gradient(-45deg,var(--checker-b) 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,var(--checker-b) 75%),linear-gradient(-45deg,transparent 75%,var(--checker-b) 75%);
+  background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:var(--checker-a)}
+#stage .wrap{position:relative;width:100%;aspect-ratio:552/736}
+#stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-family:var(--data);font-size:11.5px;margin-top:12px}
+.facts dt{color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:10px;padding-top:2px}
+.facts dd{margin:0;word-break:break-all}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.tag{font-family:var(--data);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--ink-soft)}
+.swatches{display:flex;gap:10px;margin-top:12px}
+.sw{flex:1;text-align:center}
+.sw input{width:100%;height:36px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
+.sw span{display:block;font-family:var(--data);font-size:9.5px;color:var(--ink-soft);margin-top:3px;
+  text-transform:uppercase;letter-spacing:.05em}
+#log{font-family:var(--data);font-size:11.5px;line-height:1.6;margin-top:10px;max-height:170px;overflow:auto}
+#log div{padding:2px 0;border-bottom:1px dotted var(--line)}
+.ok{color:var(--good)} .err{color:var(--bad)} .dim{color:var(--ink-soft)}
+.hidden{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark" aria-hidden="true"></div>
+  <div><h1>RCA Downloader</h1><div class="sub" id="status">loading catalogue…</div></div>
+</header>
+
+<section>
+  <input type="search" id="q" placeholder="Name, artist, contract, tag, token ID"
+         autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+  <div class="hint" id="hint">Try <b>Gloop</b>, an artist like <b>penguitt</b>, a tag like <b>gen4</b>, or paste an OpenSea link.</div>
+  <ul class="results" id="results"></ul>
+</section>
+
+<section id="detail" class="hidden">
+  <h2>Preview</h2>
+  <div id="stage"><div class="wrap"><img id="bgImg" alt=""><img id="pvImg" alt="avatar"></div></div>
+  <dl class="facts" id="facts"></dl>
+  <div class="tags" id="tags"></div>
+
+  <div id="swWrap" class="hidden">
+    <h2 style="margin-top:18px">Placeholder colours</h2>
+    <div class="swatches">
+      <div class="sw"><input type="color" id="cBody" value="#00ff00"><span>Body</span></div>
+      <div class="sw"><input type="color" id="cEyes" value="#ffff00"><span>Eyes</span></div>
+      <div class="sw"><input type="color" id="cHair" value="#0000ff"><span>Hair</span></div>
+    </div>
+    <div class="hint" id="swNote"></div>
+  </div>
+
+  <div style="margin-top:18px">
+    <button class="primary" id="dl">Download package<small>Avatar PNG · background PNG · layered SVG</small></button>
+  </div>
+  <div id="log"></div>
+</section>
+
+<script>
+"use strict";
+
+const ZORDER={hairBack:1,bottom:2,top:3,face:4,eyes:5,hairFront:6,hat:7,leftHand:8,rightHand:9};
+const LABEL={hairBack:"Hair back",bottom:"Bottom",top:"Top",face:"Face",eyes:"Eyes",
+             hairFront:"Hair front",hat:"Hat",leftHand:"Left hand",rightHand:"Right hand"};
+const TRAIT_BASE="https://i.redd.it/snoovatar/snoo_assets/";
+const TRAIT_SUB ="https://i.redd.it/snoovatar/snoo_assets/submissions/";
+const REF_W=552, REF_H=736, TR_W=380, TR_H=600;
+
+let DB=null, SEL=null;
+const logEl=document.getElementById("log");
+const log=(m,c)=>{const d=document.createElement("div");if(c)d.className=c;d.textContent=m;logEl.appendChild(d);logEl.scrollTop=1e6;};
+const clearLog=()=>logEl.innerHTML="";
+
+/* ---------- zip (store) ---------- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0}return t})();
+const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+function makeZip(files){
+  const enc=new TextEncoder(),parts=[],cen=[];let off=0;const D=new Date();
+  const tt=((D.getHours()<<11)|(D.getMinutes()<<5)|(D.getSeconds()>>1))&0xFFFF;
+  const dd=(((D.getFullYear()-1980)<<9)|((D.getMonth()+1)<<5)|D.getDate())&0xFFFF;
+  for(const f of files){
+    const nb=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+    const lh=new Uint8Array(30+nb.length),lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x0800,true);lv.setUint16(8,0,true);
+    lv.setUint16(10,tt,true);lv.setUint16(12,dd,true);lv.setUint32(14,crc,true);lv.setUint32(18,sz,true);
+    lv.setUint32(22,sz,true);lv.setUint16(26,nb.length,true);lh.set(nb,30);
+    parts.push(lh,f.data);
+    const ch=new Uint8Array(46+nb.length),cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);
+    cv.setUint16(10,0,true);cv.setUint16(12,tt,true);cv.setUint16(14,dd,true);cv.setUint32(16,crc,true);
+    cv.setUint32(20,sz,true);cv.setUint32(24,sz,true);cv.setUint16(28,nb.length,true);cv.setUint32(42,off,true);
+    ch.set(nb,46);cen.push(ch);off+=lh.length+sz;
+  }
+  let cs=0;for(const c of cen)cs+=c.length;
+  const e=new Uint8Array(22),ev=new DataView(e.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cs,true);ev.setUint32(16,off,true);
+  return new Blob([...parts,...cen,e],{type:"application/zip"});
+}
+function save(blob,name){
+  const u=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),30000);
+}
+
+/* ---------- catalogue ---------- */
+function expand(v,base){ return v.charAt(0)==="!" ? v.slice(1) : base+v; }
+const pvUrl=r=>expand(r.pv,DB.PV);
+const bgUrl=r=>expand(r.bg,DB.BG);
+const traitUrl=id=>id.slice(-1)!=="_" ? TRAIT_BASE+id+".svg" : TRAIT_SUB+id+".svg";
+
+async function boot(){
+  try{
+    const r=await fetch("index.json");
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    DB=await r.json();
+    DB.items.forEach(it=>{
+      it._s=[it.n,it.c,it.d||"",it.a,it.p,it.st,(it.g||[]).join(" "),String(it.s)].join(" ").toLowerCase();
+    });
+    document.getElementById("status").textContent=DB.items.length.toLocaleString()+" collectibles indexed";
+    const q=document.getElementById("q"); q.disabled=false; q.focus();
+  }catch(e){
+    document.getElementById("status").textContent="catalogue failed to load";
+    document.getElementById("hint").innerHTML=
+      "<span style='color:var(--bad)'>Could not load index.json ("+e.message+
+      "). It must sit next to this page in the same folder.</span>";
+  }
+}
+
+/* ---------- search ---------- */
+function search(raw){
+  const v=raw.trim().toLowerCase();
+  if(!v) return [];
+  const os=v.match(/(0x[a-f0-9]{40})(?:\/(\d+))?/);
+  if(os){
+    let hits=DB.items.filter(i=>i.a===os[1]);
+    if(hits.length>1&&os[2]!=null){
+      const t=+os[2], under=hits.filter(i=>+i.s<=t);
+      if(under.length) hits=[under.reduce((a,b)=>+b.s>+a.s?b:a)];
+    }
+    return hits;
+  }
+  const terms=v.split(/\s+/).filter(Boolean);
+  const out=[];
+  for(const it of DB.items){
+    if(terms.every(t=>it._s.includes(t))){
+      out.push(it);
+      if(out.length>200) break;
+    }
+  }
+  const exact=v;
+  out.sort((a,b)=>{
+    const an=a.n.toLowerCase(), bn=b.n.toLowerCase();
+    return (bn===exact)-(an===exact) || (bn.startsWith(exact))-(an.startsWith(exact)) || an.localeCompare(bn);
+  });
+  return out.slice(0,60);
+}
+function showResults(list){
+  const ul=document.getElementById("results");
+  ul.innerHTML="";
+  if(!list.length) return;
+  for(const it of list){
+    const li=document.createElement("li");
+    li.className="hit"; li.tabIndex=0; li.setAttribute("role","button");
+    li.setAttribute("aria-selected", String(SEL===it));
+    const tw=document.createElement("div"); tw.className="tw";
+    const im=new Image(); im.loading="lazy"; im.src=pvUrl(it); im.alt=""; tw.appendChild(im);
+    const info=document.createElement("div"); info.className="info";
+    const t=document.createElement("div"); t.className="t"; t.textContent=it.n||"untitled";
+    const m=document.createElement("div"); m.className="m";
+    m.textContent=(it.d||it.c)+" · "+it.u+" made · "+(it.g||[]).slice(0,3).join(" ");
+    info.append(t,m); li.append(tw,info);
+    const pick=()=>select(it);
+    li.addEventListener("click",pick);
+    li.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
+    ul.appendChild(li);
+  }
+}
+let timer=null;
+document.getElementById("q").addEventListener("input",e=>{
+  clearTimeout(timer);
+  const v=e.target.value;
+  timer=setTimeout(()=>showResults(search(v)),140);
+});
+
+/* ---------- selection ---------- */
+function select(it){
+  SEL=it;
+  document.getElementById("detail").classList.remove("hidden");
+  clearLog();
+  document.getElementById("bgImg").src=bgUrl(it);
+  document.getElementById("pvImg").src=pvUrl(it);
+
+  const slots=Object.keys(it.t||{}).sort((a,b)=>ZORDER[a]-ZORDER[b]);
+  const f=document.getElementById("facts");
+  f.innerHTML="";
+  const rows=[
+    ["Artist", it.d ? it.d+" (@"+it.c+")" : "@"+it.c],
+    ["Supply", it.u+" · "+it.st.toLowerCase().replace("_"," ")],
+    ["Contract", it.a],
+    ["First token", it.s],
+    ["Layers", slots.length ? slots.map(s=>LABEL[s]).join(", ") : "none decoded"]
+  ];
+  for(const [k,v] of rows){
+    const dt=document.createElement("dt"); dt.textContent=k;
+    const dd=document.createElement("dd"); dd.textContent=v;
+    f.append(dt,dd);
+  }
+  const tg=document.getElementById("tags");
+  tg.innerHTML="";
+  (it.g||[]).forEach(t=>{const s=document.createElement("span");s.className="tag";s.textContent=t;tg.appendChild(s)});
+
+  document.getElementById("swWrap").classList.add("hidden");
+  document.querySelectorAll(".hit").forEach(h=>h.setAttribute("aria-selected","false"));
+  document.getElementById("detail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+/* ---------- svg assembly ---------- */
+const PH=[
+  {re:()=>/fill:\s*(lime|#00FF00)\s*;/gi, key:"body"},
+  {re:()=>/fill:\s*(#FFFF00|#FF0)\s*;/gi, key:"eyes"},
+  {re:()=>/fill:\s*blue\s*;/gi,           key:"hair"}
+];
+function recolour(txt,col){
+  let out=txt, touched=false;
+  for(const p of PH){
+    const r=p.re();
+    if(r.test(out)){ touched=true; out=out.replace(p.re(),"fill: "+col[p.key]+";"); }
+  }
+  return {out,touched};
+}
+function scopeClasses(txt,prefix){
+  let out=txt.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi,(m,a,css)=>
+    "<style"+a+">"+css.replace(/\.(-?[A-Za-z_][\w-]*)/g,"."+prefix+"$1")+"</style>");
+  return out.replace(/\sclass="([^"]*)"/g,(m,cl)=>
+    ' class="'+cl.trim().split(/\s+/).filter(Boolean).map(c=>prefix+c).join(" ")+'"');
+}
+function parseSVG(txt){
+  const doc=new DOMParser().parseFromString(txt,"image/svg+xml");
+  const el=doc.documentElement;
+  if(!el || el.nodeName==="parsererror" || el.getElementsByTagName("parsererror").length) return null;
+  const vb=(el.getAttribute("viewBox")||"").trim().split(/[\s,]+/).map(Number);
+  const box=(vb.length===4&&vb[2]>0)?{x:vb[0],y:vb[1],w:vb[2],h:vb[3]}
+    :{x:0,y:0,w:parseFloat(el.getAttribute("width"))||TR_W,h:parseFloat(el.getAttribute("height"))||TR_H};
+  return {inner:el.innerHTML,box};
+}
+const b64=b=>{let s="";const C=0x8000;for(let i=0;i<b.length;i+=C)s+=String.fromCharCode.apply(null,b.subarray(i,i+C));return btoa(s)};
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const slug=s=>(s||"avatar").replace(/[^\w\- ]/g,"").trim().replace(/\s+/g,"-").toLowerCase()||"avatar";
+
+async function grab(url){
+  const r=await fetch(url);
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r;
+}
+
+/* ---------- download ---------- */
+document.getElementById("dl").addEventListener("click", async ()=>{
+  if(!SEL) return;
+  const btn=document.getElementById("dl");
+  btn.disabled=true; clearLog();
+  const name=slug(SEL.n);
+  try{
+    log("avatar png…","dim");
+    const pv=new Uint8Array(await (await grab(pvUrl(SEL))).arrayBuffer());
+    log("background png…","dim");
+    const bg=new Uint8Array(await (await grab(bgUrl(SEL))).arrayBuffer());
+
+    const col={body:document.getElementById("cBody").value,
+               eyes:document.getElementById("cEyes").value,
+               hair:document.getElementById("cHair").value};
+    const slots=Object.keys(SEL.t||{}).sort((a,b)=>ZORDER[a]-ZORDER[b]);
+    const groups=[]; let anyColourable=false;
+
+    for(const s of slots){
+      const url=traitUrl(SEL.t[s]);
+      log(LABEL[s]+"…","dim");
+      let txt;
+      try{ txt=await (await grab(url)).text(); }
+      catch(e){ log(LABEL[s]+" failed: "+e.message,"err"); continue; }
+      const rc=recolour(txt,col);
+      if(rc.touched) anyColourable=true;
+      const parsed=parseSVG(scopeClasses(rc.out,s+"-"));
+      if(!parsed){ log(LABEL[s]+" unreadable, skipped","err"); continue; }
+      groups.push({slot:s,parsed});
+    }
+
+    // Assemble at the reference frame; traits sit centred in a 380×600 box.
+    const offX=(REF_W-TR_W)/2, offY=(REF_H-TR_H)/2;
+    let svg='<?xml version="1.0" encoding="UTF-8"?>\n'
+      +'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+      +'xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" '
+      +'width="'+REF_W+'" height="'+REF_H+'" viewBox="0 0 '+REF_W+' '+REF_H+'">\n'
+      +'  <title>'+esc(SEL.n)+'</title>\n'
+      +'  <g id="background" inkscape:groupmode="layer" inkscape:label="Background">\n'
+      +'    <title>Background</title>\n'
+      +'    <image x="0" y="0" width="'+REF_W+'" height="'+REF_H+'" preserveAspectRatio="xMidYMid slice" '
+      +'xlink:href="data:image/png;base64,'+b64(bg)+'"/>\n  </g>\n';
+    for(const g of groups){
+      const sx=TR_W/g.parsed.box.w, sy=TR_H/g.parsed.box.h;
+      svg+='  <g id="'+g.slot+'" inkscape:groupmode="layer" inkscape:label="'+esc(LABEL[g.slot])+'" '
+        +'transform="translate('+offX+','+offY+') scale('+sx.toFixed(6)+','+sy.toFixed(6)+') '
+        +'translate('+(-g.parsed.box.x)+','+(-g.parsed.box.y)+')">\n'
+        +'    <title>'+esc(LABEL[g.slot])+'</title>\n'+g.parsed.inner+'\n  </g>\n';
+    }
+    svg+='</svg>\n';
+
+    const enc=new TextEncoder();
+    save(makeZip([
+      {name:name+"/"+name+"-avatar.png",     data:pv},
+      {name:name+"/"+name+"-background.png", data:bg},
+      {name:name+"/"+name+"-layers.svg",     data:enc.encode(svg)}
+    ]), name+".zip");
+
+    log("packaged "+groups.length+" vector layers + 2 PNGs","ok");
+    const sw=document.getElementById("swWrap");
+    if(anyColourable){
+      sw.classList.remove("hidden");
+      document.getElementById("swNote").textContent=
+        "This avatar uses Reddit's placeholder fills. Adjust and download again to bake in different colours.";
+    } else sw.classList.add("hidden");
+  }catch(e){
+    log(e.message,"err");
+    log("If every fetch failed, the asset host is refusing cross-origin reads from this page.","dim");
+  }finally{ btn.disabled=false; }
+});
+
+boot();
+</script>
+</body>
+</html>
